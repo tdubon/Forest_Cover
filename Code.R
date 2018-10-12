@@ -169,17 +169,11 @@ soil_types <- cbind.data.frame(forest.t$soil_type_1,
                                forest.t$soil_type_39,
                                forest.t$soil_type_40)
 
-#forest.t$wld_area <- ifelse((forest.t$wld_area_rawah == "1"),1,0)
-#forest.t$wld_area <- if((forest.t$wld_area_neota == "1"), 2)
-#forest.t$wld_area <- forest.t$wld_area, levels=c(1,0), labels=c()
-#forest.t$wld_area <- ifelse((forest.t$wld_area_rawah == "1"),1)
-#diamonds_transformed$internet <- factor(diamonds_transformed$internet,levels=c(1,2),labels=c("NO","YES"))
+
 
 
 cat("\n","----- ANALYSIS OF VARIABLES - TABLES & CORRELATION -----","\n")
-aggregate(diamonds_transformed$price_transf,by=list(saleType=diamonds_transformed$channel),FUN=sum)
 
-aggregate(wld_areas, by=1, FUN=sum)
 
 library(corrplot)
 corr= cor(forest[, c(1:10,55)])
