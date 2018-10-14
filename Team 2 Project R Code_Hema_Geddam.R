@@ -11,7 +11,7 @@ forest.df <-  gz.file
 dim(forest.df)
 
 # Use the structure function str();
-cat("\n","----- Initial Structure of diamonds data frame -----","\n")
+cat("\n","----- Initial Structure of data frame -----","\n")
 str(forest.df)
 #Changing the names of the columns in the dataframe
 names(forest.df) <- c("Elevation","Aspect","Slope","Horizontal_Distance_To_Hydrology","Vertical_Distance_To_Hydrology",
@@ -24,7 +24,7 @@ names(forest.df) <- c("Elevation","Aspect","Slope","Horizontal_Distance_To_Hydro
                       ,"soil_Type28","soil_Type29","soil_Type30","soil_Type31","soil_Type32","soil_Type33","soil_Type34","soil_Type35"
                       ,"soil_Type36","soil_Type37","soil_Type38","soil_Type39","soil_Type40","Cover_Type")
 # Use the structure function str();
-cat("\n","----- Initial Structure of diamonds data frame -----","\n")
+cat("\n","----- Initial Structure of data frame -----","\n")
 str(forest.df)
 #To get the descriptive statistics of the dataset:
 summary(forest.df)
@@ -33,7 +33,7 @@ head(forest.df)
 ### Need to make sure our data is understood correctly by R, since we have a mix of numerical and categorical
 
 forest.df$Cover_Type = as.factor(forest.df$Cover_Type)
-cat("\n","----- ReStructure of diamonds data frame -----","\n")
+cat("\n","----- ReStructure of data frame -----","\n")
 str(forest.df)
 class(forest.df$Cover_Type)
 ######################### Part 2: Data Preparation #####################
