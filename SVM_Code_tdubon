@@ -1,0 +1,216 @@
+# Predict 454 Project
+# Date created 10/23/2018
+# Eric Smith
+# Prasanna Venkata Rao
+# Tannia Dubon
+# Lucas Lu
+# Kanaka Venkata Hema Geddam 
+
+
+#install.packages("plotly")
+#install.packages("GGally")
+
+require(moments)
+library(corrplot)
+library(plotly)
+library(GGally)
+
+
+
+####################################################################################################################################
+######################### Part 1: Read in data  ############################################
+
+setwd("~/Documents/Northwestern/MSDS_454/Final_Project/Forest_Cover")
+
+forest.df <- read.csv(gzfile(file.choose()),header = FALSE, sep =",")
+
+colnames(forest.df) <- c("Elevation","Aspect","Slope","Horizontal_Distance_To_Hydrology","Vertical_Distance_To_Hydrology",
+                         "Horizontal_Distance_To_Roadways","Hillshade9","Hillshade12","Hillshade3",
+                         "Horizontal_Distance_To_Fire_Points","Rawah_Wild_Area","Neota_Wild_Area",
+                         "Comanche_Peak_Wild_Area","Cache_la_Poudre_Wild_Area","soil_Type1","soil_Type2","soil_Type3"
+                         ,"soil_Type4","soil_Type5","soil_Type6","soil_Type7","soil_Type8","soil_Type9","soil_Type10","soil_Type11"
+                         ,"soil_Type12","soil_Type13","soil_Type14","soil_Type15","soil_Type16","soil_Type17","soil_Type18","soil_Type19"
+                         ,"soil_Type20","soil_Type21","soil_Type22","soil_Type23","soil_Type24","soil_Type25","soil_Type26","soil_Type27"
+                         ,"soil_Type28","soil_Type29","soil_Type30","soil_Type31","soil_Type32","soil_Type33","soil_Type34","soil_Type35"
+                         ,"soil_Type36","soil_Type37","soil_Type38","soil_Type39","soil_Type40","Cover_Type")
+dim(forest.df)
+forest.df[1:6, 1:55]
+
+forest.df=forest.df %>% 
+  mutate(Cover_Type = ifelse(Cover_Type == 1 ,'Spruce/Fir',
+                             ifelse(Cover_Type == 2 ,'Lodgepole Pine',
+                                    ifelse(Cover_Type == 3 ,'Ponderosa Pine',
+                                           ifelse(Cover_Type == 4 ,'Cottonwood/Willow',
+                                                  ifelse(Cover_Type == 5 ,'Aspen',
+                                                         ifelse(Cover_Type == 6 ,'Douglas-fir',
+                                                                ifelse(Cover_Type == 7 ,'Krummholz','na'))))))))
+
+
+
+forest.df<-setNames(forest.df, tolower(names(forest.df)))
+
+### Need to make sure our data is understood correctly by R, since we have a mix of numerical and categorical
+forest.df[11:55]<-lapply(forest.df[11:55], factor)
+
+str(forest.df)
+
+
+
+#######################big matrix attempt
+
+#forest.df<- read.big.matrix("covtype.data", header = FALSE, 
+                           # backingfile="covtype.bin",
+                           # descriptorfile = "covtype.desc",
+                           # type = "integer")
+#options(bigmemory.allow.dimnames=TRUE)
+#######################
+
+
+
+####################################################################################################################################
+######################### Training/Testing Split  ############################################
+
+
+
+library(caret)
+###first, split the training set off
+#see 2013 Applied Modeling Book, pg437
+
+set.seed(15)
+split1 <-createDataPartition(forest.df$cover_type, p=.7)[[1]]
+testing <- forest.df[-split1,]
+training <- forest.df[split1,]
+
+#set.seed(20)
+#split2 <- createDataPartition(other$price_transf)[[1]]
+#evaluation <- other[split2,]
+#testing <- other[-split2,]
+
+#determine predictor variable names
+predictors <- names(training)[names(training)!= "cover_type"]
+
+#eliminating the first column
+head(testing)
+head(training)  
+
+data.train <- data.frame(model.matrix(cover_type~., data=training))[,-1]
+head(data.train)
+#evaluationIND <- data.frame(model.matrix(price_transf~., data=evaluation))[,-1]
+data.test <- data.frame(model.matrix(cover_type~., data=testing))[,-1]
+head(data.test)
+
+
+
+#add outcome variable back into the dataset
+data.train$cover_type <- training$cover_type
+#evaluationIND <- evaluation$price_transf
+data.test$cover_type <- testing$cover_type
+
+remove(predictors, split1, forest.df, testing, training)
+
+data.train[11:55]<-lapply(data.train[11:55], factor)
+data.test[11:55]<-lapply(data.test[11:55], factor)
+
+
+######################### using Parallel Processing  ############################################
+
+write.csv(data.train, file="~/Documents/Northwestern/MSDS_454/Final_Project/Forest_Cover/data.train2.csv")
+write.csv(data.test, file="~/Documents/Northwestern/MSDS_454/Final_Project/Forest_Cover/data.test2.csv")
+library(ff)
+
+
+data.train.ff <- read.csv.ffdf(file="~/Documents/Northwestern/MSDS_454/Final_Project/Forest_Cover/data.train2.csv", 
+                               header=TRUE, colClasses=c(rep("numeric", 10), rep("factor", 45)),nrow=406710)
+
+class(data.train.ff)
+str(data.train.ff)
+
+data.test.ff <- read.csv.ffdf(file="~/Documents/Northwestern/MSDS_454/Final_Project/Forest_Cover/data.test2.csv", 
+                               header=TRUE, colClasses=c(rep("numeric", 10), rep("factor", 45)),nrow=174302)
+
+class(data.test.ff)
+str(data.test.ff)
+
+
+####################################################################################################################################
+######################### Support Vector Machines  ############################################
+
+library(e1071)
+#higher gamma = more flexible fit and more accuracy(less support vectors)
+#kernel can be radial or polynomial
+
+
+#use CV to select best gamma to use
+tune.out=tune(svm, cover_type~., data=data.train.ff, kernel="radial", ranges=list(cost=c(0.1, 1, 10, 100, 1000),gamma=c(0.5, 1, 2, 3, 4)))
+
+summary(tune.out)
+
+#fit the model
+svmfit1 = svm(cover_type~., data=data.train.ff[,1:55], kernel="radial", decision.values=T)$decision.values
+
+lapply(data.train.ff[,1:55], levels)
+na.omit(data.train.ff$virtual)
+par(mfrow=c(1,1))
+plot(svmfit1, data.train.ff)
+summary(svmfit)
+
+table(true=data.test.ff$cover_type, pred=predict(tune.out$best.model, newdata=data.train.ff))
+
+
+####################################################################################################################################
+######################### Support Vector Machines - Attempt 2  ############################################
+
+
+
+trctrl <- trainControl(method="cv",
+                    number=5,
+                    classProbs=TRUE,
+                    summaryFunction=multiClassSummary)
+set.seed(123)
+
+svm.c <- train(cover_type~., data.train.ff,
+               method='svmRadial',
+               trControl=trctrl,
+               tuneLength = 10)
+
+#trained SVM model result
+svm.c
+
+#test set prediction
+test_pred <- predict(svm.c, newdata=data.test.ff)
+test_pred
+
+#how accurate is the model?
+confusionMatrix(test_pred, data.test2$cover_type)
+
+
+####################################################################################################################################
+######################### ROC Curves  ############################################
+
+#SVMs output class labels for each observation. Possible to get numerical scores used to obtain class labels. 
+#The sign of the fitted value determines the side of the decision boundary the observation lies. 
+#if fitted value > 0, then observation is assigned to one class
+#if fitted value < 0, then obs assigned to other class
+
+library(ROCR)
+rocplot= function(pred, truth, ...){
+  predob = prediction(pred, truth)
+  perf = performance(predob, "tpr", "fpr")
+  plot(perf,...)
+}
+
+par(mfrow=c(1,2))
+
+fitted=attributes(predict(svmfit, data.train.ff, decision.values=TRUE))$decision.values
+rocplot(fitted, data.train.ff$Cover_Type, main="Training Data")
+
+
+
+fitted=attributes(predict(svmfit, data.test.ff, decision.values=TRUE))$decision.values
+rocplot(fitted, data.test.ff$Cover_Type, main="Test Data")
+
+
+
+
+
+
