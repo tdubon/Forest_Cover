@@ -15,6 +15,7 @@ require(moments)
 library(corrplot)
 library(plotly)
 library(GGally)
+library(caret)
 
 ####################################################################################################################################
 ######################### Part 1: Read in data  ############################################
@@ -284,7 +285,8 @@ corr
 ##### 2 -  Model Based EDA #######
 # help(randomForest)
 set.seed(1234)
-model_eda.rf <- randomForest(cover_type ~.-soil_type40 -cache_la_poudre_wild_area -wld_area -soil_type, forest_mod, importance=T ,ntree = 100)
+model_eda.rf <- randomForest(cover_type ~.-soil_type40 -cache_la_poudre_wild_area -wld_area -soil_type, 
+                             forest_mod, importance=T ,ntree = 100)
 plot(model_eda.rf)
 
 summary(model_eda.rf)
@@ -301,45 +303,45 @@ dim(var.imp)
 ############## Part 3: Model Buidling ############################################################
 ######## Step 1 - Add a train/test flag to split the sample ##############
 set.seed(1234)
-forest_mod$u <- runif(n=dim(forest_mod)[1],min=0,max=1);
-forest_mod$train <- ifelse(forest_mod$u<0.70,1,0);
+trainIndex <- createDataPartition(forest_mod$cover_type, p = .7, 
+                                  list = FALSE, 
+                                  times = 1)
+forest_mod_train <- forest_mod[ trainIndex,]
+forest_mod_test  <- forest_mod[-trainIndex,]
 
 # Check the counts on the train/test split
-table(forest_mod$train)
+dim(forest_mod)
+dim(forest_mod_train)
+dim(forest_mod_test)
 
 # Check the train/test split as a percentage of whole
-table(forest_mod$train)/dim(forest_mod)[1]
+(dim(forest_mod_train)[1]/dim(forest_mod)[1])*100
+(dim(forest_mod_test)[1]/dim(forest_mod)[1])*100
 
-train.df <- subset(forest_mod,train==1);
-test.df <- subset(forest_mod,train!=1);
+##distribution in main dataset
+table(forest_mod$cover_type)/nrow(forest_mod)
 
-# Check your data split. The sum of the parts should equal the whole.
-# Do your totals add up?
-dim(forest_mod)[1]
-dim(train.df)[1]
-dim(test.df)[1]
-dim(train.df)[1]+dim(test.df)[1]
-
-train.df$u <- NULL
-train.df$train <- NULL
-
-str(train.df)
-
-table(train.df$cover_type)/nrow(train.df)
-table(test.df$cover_type)/nrow(test.df)
-table(train.df$wld_area)/nrow(train.df)
-table(test.df$wld_area)/nrow(test.df)
-table(train.df$soil_type)/nrow(train.df)
-table(test.df$soil_type)/nrow(test.df)
+##distribution in train and test
+table(forest_mod_train$cover_type)/nrow(forest_mod_train)
+table(forest_mod_test$cover_type)/nrow(forest_mod_test)
+table(forest_mod_train$wld_area)/nrow(forest_mod_train)
+table(forest_mod_test$wld_area)/nrow(forest_mod_test)
+table(forest_mod_train$soil_type)/nrow(forest_mod_train)
+table(forest_mod_test$soil_type)/nrow(forest_mod_test)
 
 ######## Step 2 - Modeling #####################
 ######### MODEL 1 - RANDOM FOREST #######
 
-set.seed(123)
-model.rf <- randomForest(cover_type ~.-soil_type40 -cache_la_poudre_wild_area, train.df, importance=T ,ntree = 100)
+set.seed(1234)
+model.rf <- randomForest(cover_type ~.-soil_type40 -cache_la_poudre_wild_area -wld_area -soil_type,
+                         forest_mod_train, importance=T ,ntree = 403, do.trace=T)
+confusionMatrix(predict(model.rf), forest_mod_train$cover_type)
+
 plot(model.rf)
 
 summary(model.rf)
+
+importance(model.rf)
 varImpPlot(model.rf,sort = T,main="Variable Importance",n.var=15)
 
 # Variable Importance Table
@@ -349,4 +351,10 @@ var.imp$Variables <- row.names(var.imp)
 var.imp[order(var.imp$MeanDecreaseGini,decreasing = T),]
 dim(var.imp)
 
+
 ############################################################################################################################
+############## Part 4: Predictive Accuracy ############################################################
+set.seed(1234)
+model.rf.test <- predict(model.rf, forest_mod_test)
+confusionMatrix(model.rf.test, forest_mod_test$cover_type)
+
