@@ -10,6 +10,9 @@
 #install.packages("plotly")
 #install.packages("GGally")
 
+# install.packages('multiROC')
+require(multiROC)
+library(pROC)
 library(randomForest)
 require(moments)
 library(corrplot)
@@ -333,16 +336,27 @@ table(forest_mod_test$soil_type)/nrow(forest_mod_test)
 ######### MODEL 1 - RANDOM FOREST #######
 
 set.seed(1234)
-model.rf <- randomForest(cover_type ~.-soil_type40 -cache_la_poudre_wild_area -wld_area -soil_type,
-                         forest_mod_train, importance=T ,ntree = 403, do.trace=T)
+# model.rf <- randomForest(cover_type ~.-soil_type40 -cache_la_poudre_wild_area -wld_area -soil_type,
+#                          forest_mod_train, importance=T ,ntree = 403, do.trace=T)
+
+model.rf <- randomForest(cover_type ~ elevation +aspect +slope +horizontal_distance_to_hydrology 
+                         +vertical_distance_to_hydrology +horizontal_distance_to_roadways +hillshade_9am
+                         +hillshade_noon +horizontal_distance_to_fire_points +rawah_wild_area 
+                         +comanche_peak_wild_area, forest_mod_train, importance=T ,ntree = 416, do.trace=T)
+
+
 confusionMatrix(predict(model.rf), forest_mod_train$cover_type)
+#ROC
+rf_roc <- multiclass.roc(forest_mod_train$cover_type,as.numeric(predict(model.rf)), percent = TRUE)
+rf_roc
+plot.roc(rf_roc[['rocs']][[1]])
 
 plot(model.rf)
 
 summary(model.rf)
 
 importance(model.rf)
-varImpPlot(model.rf,sort = T,main="Variable Importance",n.var=15)
+varImpPlot(model.rf,sort = T,main="Variable Importance",n.var=10)
 
 # Variable Importance Table
 var.imp <- data.frame(importance(model.rf, type=2))
@@ -357,4 +371,7 @@ dim(var.imp)
 set.seed(1234)
 model.rf.test <- predict(model.rf, forest_mod_test)
 confusionMatrix(model.rf.test, forest_mod_test$cover_type)
-
+#ROC
+rf_test_roc <- multiclass.roc(forest_mod_test$cover_type,as.numeric(model.rf.test), percent = TRUE)
+rf_test_roc
+plot.roc(rf_test_roc[['rocs']][[1]])
