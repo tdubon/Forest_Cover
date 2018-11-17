@@ -6,7 +6,9 @@
 # Lucas Lu
 # Kanaka Venkata Hema Geddam 
 
-
+###data partitioned at 5, 10, and 15%
+###balanced sampling using createDataPartition
+####currently testing new approaches to improve model
 
 require(moments)
 library(corrplot)
@@ -334,7 +336,7 @@ test_pred_grid
 
 confusionMatrix(test_pred_grid, data.test1$treatment)
 
-##############################
+##############################code for elastic net - need to update
 
 
 
