@@ -2,11 +2,12 @@
 MDS 464 Final Project
 
 Contributors:
-# Eric Smith
-# Prasanna Venkata Rao
-# Tannia Dubon
-# Lucas Lu
-# Kanaka Venkata Hema Geddam 
+#EricSmith
+#Prasanna Venkata Rao
+#Tannia Dubon
+#Lucas Lu
+#Kanaka Venkata Hema Geddam
+
 
 echo "# Forest_Cover" >> README.md
 git init
