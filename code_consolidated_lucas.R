@@ -1,0 +1,1005 @@
+# Predict 454 Project
+
+# Date created 10/23/2018
+
+# Eric Smith
+
+# Prasanna Venkata Rao
+
+# Tannia Dubon
+
+# Lucas Lu
+
+# Kanaka Venkata Hema Geddam 
+
+
+
+
+
+#install.packages("plotly")
+
+#install.packages("GGally")
+
+
+
+# install.packages('multiROC')
+
+require(multiROC)
+
+library(pROC)
+
+library(randomForest)
+
+require(moments)
+
+library(corrplot)
+
+library(plotly)
+
+library(GGally)
+
+library(caret)
+
+
+
+####################################################################################################################################
+
+######################### Part 1: Read in data  ############################################
+
+gz.file <- read.csv(gzfile(file.choose()),header = FALSE, sep =",")
+
+forest.df <-  gz.file
+
+dim(forest.df)
+
+
+
+# Use the structure function str();
+
+cat("\n","----- Initial Structure of data frame -----","\n")
+
+str(forest.df)
+
+#Changing the names of the columns in the dataframe
+
+names(forest.df) <- c("Elevation","Aspect","Slope","Horizontal_Distance_To_Hydrology","Vertical_Distance_To_Hydrology",
+                      
+                      "Horizontal_Distance_To_Roadways","Hillshade_9am","Hillshade_Noon","Hillshade_3pm",
+                      
+                      "Horizontal_Distance_To_Fire_Points","Rawah_Wild_Area","Neota_Wild_Area",
+                      
+                      "Comanche_Peak_Wild_Area","Cache_la_Poudre_Wild_Area","soil_Type1","soil_Type2","soil_Type3"
+                      
+                      ,"soil_Type4","soil_Type5","soil_Type6","soil_Type7","soil_Type8","soil_Type9","soil_Type10","soil_Type11"
+                      
+                      ,"soil_Type12","soil_Type13","soil_Type14","soil_Type15","soil_Type16","soil_Type17","soil_Type18","soil_Type19"
+                      
+                      ,"soil_Type20","soil_Type21","soil_Type22","soil_Type23","soil_Type24","soil_Type25","soil_Type26","soil_Type27"
+                      
+                      ,"soil_Type28","soil_Type29","soil_Type30","soil_Type31","soil_Type32","soil_Type33","soil_Type34","soil_Type35"
+                      
+                      ,"soil_Type36","soil_Type37","soil_Type38","soil_Type39","soil_Type40","Cover_Type")
+
+
+
+forest.df=forest.df %>% 
+  
+  mutate(Cover_Type = ifelse(Cover_Type == 1 ,'Spruce/Fir',
+                             
+                             ifelse(Cover_Type == 2 ,'Lodgepole Pine',
+                                    
+                                    ifelse(Cover_Type == 3 ,'Ponderosa Pine',
+                                           
+                                           ifelse(Cover_Type == 4 ,'Cottonwood/Willow',
+                                                  
+                                                  ifelse(Cover_Type == 5 ,'Aspen',
+                                                         
+                                                         ifelse(Cover_Type == 6 ,'Douglas-fir',
+                                                                
+                                                                ifelse(Cover_Type == 7 ,'Krummholz','na'))))))))
+
+
+
+forest.df<-setNames(forest.df, tolower(names(forest.df)))
+
+
+
+# Use the structure function str();
+
+cat("\n","----- Initial Structure of data frame -----","\n")
+
+str(forest.df)
+
+#To get the descriptive statistics of the dataset:
+
+summary(forest.df)
+
+# Show the header of the data frame;
+
+head(forest.df)
+
+
+
+### Need to make sure our data is understood correctly by R, since we have a mix of numerical and categorical
+
+forest.df[11:55]<-lapply(forest.df[11:55], factor)
+
+
+
+str(forest.df)
+
+
+
+cat("\n","----- CONSOLIDATING DUMMY VARIABLES INTO CATEGORICL VARIABLES-----","\n")
+
+
+
+forest_mod<-forest.df
+
+
+
+forest_mod$wld_area <- names(forest_mod[11:14])[max.col(forest_mod[11:14])]
+
+table(forest_mod$wld_area)
+
+
+
+forest_mod$soil_type <- names(forest_mod[15:54])[max.col(forest_mod[15:54])]
+
+table(forest_mod$soil_type)
+
+
+
+cat("\n","----- Structure of modified data frame -----","\n")
+
+str(forest_mod)
+
+summary(forest_mod)
+
+
+
+####################################################################################################################################
+
+######################### Part 2: Data Preparation ########################################
+
+# Data Quality Check
+
+#Check for missing values
+
+sapply(forest_mod, function(x) sum(is.na(x)))
+
+#Check missing data percentage
+
+pcentNA <- function(x){sum(is.na(x))/length(x)*100}
+
+apply(forest_mod,2,pcentNA)
+
+
+
+#outlier detection
+
+# boxplot.stats(forest_mod$Elevation, coef = 1.5, do.conf = TRUE, do.out = TRUE)
+
+# boxplot.stats(forest_mod$Aspect, coef = 1.5, do.conf = TRUE, do.out = TRUE)
+
+# boxplot.stats(forest_mod$Slope, coef = 1.5, do.conf = TRUE, do.out = TRUE)
+
+# boxplot.stats(forest_mod$Horizontal_Distance_To_Hydrology, coef = 1.5, do.conf = TRUE, do.out = TRUE)
+
+# boxplot.stats(forest_mod$Vertical_Distance_To_Hydrology, coef = 1.5, do.conf = TRUE, do.out = TRUE)
+
+# boxplot.stats(forest_mod$Horizontal_Distance_To_Roadways, coef = 1.5, do.conf = TRUE, do.out = TRUE)
+
+# boxplot.stats(forest_mod$Hillshade_9am, coef = 1.5, do.conf = TRUE, do.out = TRUE)
+
+# boxplot.stats(forest_mod$Hillshade_Noon, coef = 1.5, do.conf = TRUE, do.out = TRUE)
+
+# boxplot.stats(forest_mod$Hillshade_3pm, coef = 1.5, do.conf = TRUE, do.out = TRUE)
+
+# boxplot.stats(forest_mod$Horizontal_Distance_To_Fire_Points, coef = 1.5,do.conf = TRUE, do.out = TRUE)
+
+
+
+####################################################################################################################################
+
+############## Part 3: Data Exploration ###################################################
+
+##### 1 - Traditional EDA #######
+
+
+
+# High level summary of numerical data
+
+elv <- summary(forest_mod$elevation)
+
+asp <- summary(forest_mod$aspect)
+
+slp <- summary(forest_mod$slope)
+
+hdtohyd <- summary(forest_mod$horizontal_distance_to_hydrology)
+
+vdtohyd <- summary(forest_mod$vertical_distance_to_hydrology)
+
+chdtord <- summary(forest_mod$horizontal_distance_to_roadways)
+
+hs9am <- summary(forest_mod$hillshade_9am)
+
+hsnoon <- summary(forest_mod$hillshade_noon)
+
+hs3pm <- summary(forest_mod$hillshade_3pm)
+
+hdtofp <- summary(forest_mod$horizontal_distance_to_fire_points)
+
+
+
+All <- rbind(elv,asp,slp,hdtohyd,vdtohyd,chdtord,hs9am,hsnoon,hs3pm,hdtofp)
+
+round(All,2)
+
+
+
+round(skewness(forest_mod$elevation),2)
+
+round(kurtosis(forest_mod$elevation),2)
+
+round(skewness(forest_mod$aspect),2)
+
+round(kurtosis(forest_mod$aspect),2)
+
+round(skewness(forest_mod$slope),2)
+
+round(kurtosis(forest_mod$slope),2)
+
+round(skewness(forest_mod$horizontal_distance_to_hydrology),2)
+
+round(kurtosis(forest_mod$horizontal_distance_to_hydrology),2)
+
+round(skewness(forest_mod$vertical_distance_to_hydrology),2)
+
+round(kurtosis(forest_mod$vertical_distance_to_hydrology),2)
+
+round(skewness(forest_mod$horizontal_distance_to_roadways),2)
+
+round(kurtosis(forest_mod$horizontal_distance_to_roadways),2)
+
+round(skewness(forest_mod$hillshade_9am),2)
+
+round(kurtosis(forest_mod$hillshade_9am),2)
+
+round(skewness(forest_mod$hillshade_noon),2)
+
+round(kurtosis(forest_mod$hillshade_noon),2)
+
+round(skewness(forest_mod$hillshade_3pm),2)
+
+round(kurtosis(forest_mod$hillshade_3pm),2)
+
+round(skewness(forest_mod$horizontal_distance_to_fire_points),2)
+
+round(kurtosis(forest_mod$horizontal_distance_to_fire_points),2)
+
+
+
+quantile(forest_mod$elevation, c(0, 0.01, 0.03, 0.05, 0.25, 0.5, 0.75, 0.95, 0.97, 0.99, 1)) 
+
+quantile(forest_mod$aspect, c(0, 0.01, 0.03, 0.05, 0.25, 0.5, 0.75, 0.95, 0.97, 0.99, 1))
+
+quantile(forest_mod$slope, c(0, 0.01, 0.03, 0.05, 0.25, 0.5, 0.75, 0.95, 0.97, 0.99, 1)) 
+
+quantile(forest_mod$horizontal_distance_to_hydrology, c(0, 0.01, 0.03, 0.05, 0.25, 0.5, 0.75, 0.95, 0.97, 0.99, 1)) 
+
+quantile(forest_mod$vertical_distance_to_hydrology, c(0, 0.01, 0.03, 0.05, 0.25, 0.5, 0.75, 0.95, 0.97, 0.99, 1)) 
+
+quantile(forest_mod$horizontal_distance_to_roadways, c(0, 0.01, 0.03, 0.05, 0.25, 0.5, 0.75, 0.95, 0.97, 0.99, 1)) 
+
+quantile(forest_mod$hillshade_9am, c(0, 0.01, 0.03, 0.05, 0.25, 0.5, 0.75, 0.95, 0.97, 0.99, 1)) 
+
+quantile(forest_mod$hillshade_noon, c(0, 0.01, 0.03, 0.05, 0.25, 0.5, 0.75, 0.95, 0.97, 0.99, 1)) 
+
+quantile(forest_mod$hillshade_3pm, c(0, 0.01, 0.03, 0.05, 0.25, 0.5, 0.75, 0.95, 0.97, 0.99, 1)) 
+
+quantile(forest_mod$horizontal_distance_to_fire_points, c(0, 0.01, 0.03, 0.05, 0.25, 0.5, 0.75, 0.95, 0.97, 0.99, 1)) 
+
+
+
+## cover_type distribution
+
+table(forest_mod$cover_type)/nrow(forest_mod)
+
+
+
+ggplot(forest_mod, aes(cover_type , fill=cover_type )) + geom_bar() +theme(axis.text.x = element_text(angle=65, vjust=0.6)) +
+  
+  labs(title="     Forest cover type  ")  
+
+
+
+##
+
+colours<- c  ("seagreen", "yellow", "green", "violet", "orange", 
+              
+              "steelblue", "pink", "cyan","purple","magenta") 
+
+##
+
+
+
+## Numeric Variables - Histograms, Density Plots and Box Plots 
+
+par(mfrow=c(2,5))
+
+for(i in 1:10){
+  
+  hist(forest_mod[,i], xlab = '', col=colours[i],  main=names(forest_mod[i]))
+  
+}
+
+
+
+par(mfrow=c(2,5))
+
+for(i in 1:10){
+  
+  plot(density(forest_mod[,i]), xlab = '',main=names(forest_mod[i]))
+  
+  polygon(density(forest_mod[,i]),col=colours[i],border="black")
+  
+}
+
+
+
+par(mfrow=c(2,5))
+
+for(i in 1:10){
+  
+  boxplot(forest_mod[,i],xlab = '',main=names(forest_mod[i]),col=colours[i])
+  
+}
+
+
+
+par(mfrow=c(1,1))
+
+
+
+## Categorical features bar plots
+
+forest_mod$wld_area<-as.factor(forest_mod$wld_area)
+
+table(forest_mod$wld_area)/nrow(forest_mod)
+
+forest_mod$soil_type<-as.factor(forest_mod$soil_type)
+
+table(forest_mod$soil_type)/nrow(forest_mod)
+
+
+
+ggplot(forest_mod, aes(wld_area))+
+  
+  geom_bar(aes(fill=wld_area), width = 0.5) + 
+  
+  theme(axis.text.x = element_text(angle=65, vjust=0.1)) +
+  
+  labs(title="                Wild Area  plot   ")   
+
+
+
+ggplot(forest_mod, aes(soil_type))+
+  
+  geom_bar(aes(fill=soil_type), width = 0.5) + 
+  
+  theme(axis.text.x = element_text(angle=65, vjust=0.6)) +
+  
+  labs(title="                                      Soil Type Bar plot   ") 
+
+
+
+## Distribution of the cover type by 
+
+
+
+#1)  Elevation
+
+#2)  aspect
+
+#3)  slope
+
+#4)  horizontal_distance_to_hydrology
+
+#5)  vertical_distance_to_hydrology
+
+#6)  horizontal_distance_to_roadways
+
+#7)  hillshade_9am
+
+#8)  hillshade_noon
+
+#9)  hillshade_3pm
+
+#10) horizontal_distance_to_fire_points
+
+#11) Wilderness Area
+
+#12) Soil type
+
+#13) cover type as hill shade varies
+
+#14) cover type as a function of elevation, slope and aspect
+
+
+
+#1) Elevation  vs cover_type: #Obseravtion: Distinct separation seen between classes and elevation
+
+ggplot(forest_mod, aes(x=elevation)) + geom_density()
+
+ggplot(forest_mod, aes(x=elevation)) + geom_density(aes(group=cover_type, color=cover_type, fill=cover_type), alpha=.1)
+
+
+
+#2) Aspect  vs cover_type: #Observation : No clear separation as such seen
+
+ggplot(forest_mod, aes(x=aspect)) + geom_density()
+
+ggplot(forest_mod, aes(x=aspect)) + geom_density(aes(group=cover_type, color=cover_type, fill=cover_type), alpha=.1)
+
+
+
+#3)Slope vs cover_type: #Observation : No clear sepration as such seen, Cover is dense at certain regions
+
+ggplot(forest_mod, aes(x=slope)) + geom_density()
+
+ggplot(forest_mod, aes(x=slope)) + geom_density(aes(group=cover_type, color=cover_type, fill=cover_type), alpha=.1)
+
+
+
+#4)Horizontal distance hydrology vs cover_type: #Observation : No clear sepration as such seen, Cover is dense at certain regions
+
+ggplot(forest_mod, aes(x=horizontal_distance_to_hydrology)) + geom_density()
+
+ggplot(forest_mod, aes(x=horizontal_distance_to_hydrology)) + geom_density(aes(group=cover_type, color=cover_type, fill=cover_type), alpha=.1)
+
+
+
+#5)Vertical distance hydrology vs cover_type: #Observation : No clear separation as such seen, Cover is dense at certain regions
+
+ggplot(forest_mod, aes(x=vertical_distance_to_hydrology)) + geom_density()
+
+ggplot(forest_mod, aes(x=vertical_distance_to_hydrology)) + geom_density(aes(group=cover_type, color=cover_type, fill=cover_type), alpha=.1)
+
+
+
+#6)horizontal_distance_to_roadways vs cover_type: #Observation : Class separation  seen.Not distinct, Cover is dense at certain regions
+
+ggplot(forest_mod, aes(x=horizontal_distance_to_roadways)) + geom_density()
+
+ggplot(forest_mod, aes(x=horizontal_distance_to_roadways)) + geom_density(aes(group=cover_type, color=cover_type, fill=cover_type), alpha=.1)
+
+
+
+#7)9:00am hill shadevs cover_type: #Observation : No class sepration, Cover is dense at certain regions
+
+ggplot(forest_mod, aes(x=hillshade_9am)) + geom_density()
+
+ggplot(forest_mod, aes(x=hillshade_9am)) + geom_density(aes(group=cover_type, color=cover_type, fill=cover_type), alpha=.1)
+
+
+
+#8)hillshade_noon vs cover_type: #Observation : No class sepration, Cover is dense at certain regions
+
+ggplot(forest_mod, aes(x=hillshade_noon)) + geom_density()
+
+ggplot(forest_mod, aes(x=hillshade_noon)) + geom_density(aes(group=cover_type, color=cover_type, fill=cover_type), alpha=.1)
+
+
+
+#9)hillshade_3pm vs cover_type: #Observation : No class sepration, Looks like Normal distribution
+
+ggplot(forest_mod, aes(x=hillshade_3pm)) + geom_density()
+
+ggplot(forest_mod, aes(x=hillshade_3pm)) + geom_density(aes(group=cover_type, color=cover_type, fill=cover_type), alpha=.1)
+
+
+
+#10)horizontal_distance_to_fire_points  vs cover_type: #Observation : class sepration likely
+
+ggplot(forest_mod, aes(x=horizontal_distance_to_fire_points)) + geom_density()
+
+ggplot(forest_mod, aes(x=horizontal_distance_to_fire_points)) + geom_density(aes(group=cover_type, color=cover_type, fill=cover_type), alpha=.1)
+
+
+
+#11)Wilderness Area vs cover_type
+
+ggplot(forest_mod, aes(x=wld_area)) + 
+  
+  geom_bar(mapping=aes(group=cover_type, colour=cover_type, fill=cover_type), alpha=0.5)
+
+
+
+#12)soil type vs cover_type
+
+ggplot(forest_mod, aes(x= soil_type)) + 
+  
+  geom_bar(mapping=aes(group=cover_type, colour=cover_type, fill=cover_type), alpha=0.5)+
+  
+  theme(axis.text.x = element_text(angle=65, vjust=0.6))
+
+
+
+#13)cover type as hill shade varies
+
+plot_ly(forest_mod, x = ~hillshade_9am , y = ~hillshade_noon , z = ~hillshade_3pm, type = "scatter3d",
+        
+        mode = "markers",color =~cover_type)
+
+
+
+#14)cover type as a function of elevation,slope and aspect
+
+plot_ly(forest_mod, x = ~elevation , y = ~slope, z = ~aspect, type = "scatter3d",
+        
+        mode = "markers",color =~cover_type)
+
+
+
+#### Correlation Matrix ###
+
+
+
+corr= cor(forest_mod[, c(1:10)])
+
+corrplot(corr,method="color", outline=T, cl.pos="n", rect.col="black", tl.col="indianred4",
+         
+         addCoef.col="black", addshade = c("negative", "positive", "all"),
+         
+         number.digits=2, number.cex=0.60, tl.cex=0.9, cl.cex=1, col=colorRampPalette(c("darksalmon", "white", "deepskyblue"))(100))
+
+#corr
+
+
+
+#produce list of correlations by highest value
+
+corr[lower.tri(corr,diag=TRUE)]=NA  #Prepare to drop duplicates and meaningless information
+
+corr=as.data.frame(as.table(corr))  #Turn into a 3-column table
+
+corr=na.omit(corr)  
+
+corr=corr[order(-abs(corr$Freq)),]    #Sort by highest correlation (whether +ve or -ve)
+
+corr
+
+
+
+##### 2 -  Model Based EDA #######
+
+# help(randomForest)
+
+set.seed(1234)
+
+model_eda.rf <- randomForest(cover_type ~.-soil_type40 -cache_la_poudre_wild_area -wld_area -soil_type, 
+                             
+                             forest_mod, importance=T ,ntree = 100)
+
+plot(model_eda.rf)
+
+
+
+summary(model_eda.rf)
+
+varImpPlot(model_eda.rf,sort = T,main="Variable Importance",n.var=15)
+
+
+
+# Variable Importance Table
+
+var.imp <- data.frame(importance(model_eda.rf, type=2))
+
+# make row names as columns
+
+var.imp$Variables <- row.names(var.imp)
+
+var.imp[order(var.imp$MeanDecreaseGini,decreasing = T),]
+
+dim(var.imp)
+
+
+
+####################################################################################################################################
+
+############## Part 3: Model Buidling ############################################################
+
+######## Step 1 - Add a train/test flag to split the sample ##############
+
+set.seed(1234)
+
+trainIndex <- createDataPartition(forest_mod$cover_type, p = .7, 
+                                  
+                                  list = FALSE, 
+                                  
+                                  times = 1)
+
+forest_mod_train <- forest_mod[ trainIndex,]
+
+forest_mod_test  <- forest_mod[-trainIndex,]
+
+
+
+# Check the counts on the train/test split
+
+dim(forest_mod)
+
+dim(forest_mod_train)
+
+dim(forest_mod_test)
+
+
+
+# Check the train/test split as a percentage of whole
+
+(dim(forest_mod_train)[1]/dim(forest_mod)[1])*100
+
+(dim(forest_mod_test)[1]/dim(forest_mod)[1])*100
+
+
+
+##distribution in main dataset
+
+table(forest_mod$cover_type)/nrow(forest_mod)
+
+
+
+##distribution in train and test
+
+table(forest_mod_train$cover_type)/nrow(forest_mod_train)
+
+table(forest_mod_test$cover_type)/nrow(forest_mod_test)
+
+table(forest_mod_train$wld_area)/nrow(forest_mod_train)
+
+table(forest_mod_test$wld_area)/nrow(forest_mod_test)
+
+table(forest_mod_train$soil_type)/nrow(forest_mod_train)
+
+table(forest_mod_test$soil_type)/nrow(forest_mod_test)
+
+
+
+######## Step 2 - Modeling #####################
+
+######### MODEL 1 - RANDOM FOREST #######
+
+
+
+set.seed(1234)
+
+# model.rf <- randomForest(cover_type ~.-soil_type40 -cache_la_poudre_wild_area -wld_area -soil_type,
+
+#                          forest_mod_train, importance=T ,ntree = 403, do.trace=T)
+
+
+
+model.rf <- randomForest(cover_type ~ elevation +aspect +slope +horizontal_distance_to_hydrology 
+                         
+                         +vertical_distance_to_hydrology +horizontal_distance_to_roadways +hillshade_9am
+                         
+                         +hillshade_noon +horizontal_distance_to_fire_points +rawah_wild_area 
+                         
+                         +comanche_peak_wild_area, forest_mod_train, importance=T ,ntree = 400, do.trace=T)
+
+
+
+
+
+ 
+
+#ROC
+
+rf_roc <- multiclass.roc(forest_mod_train$cover_type,as.numeric(predict(model.rf)), percent = TRUE)
+
+rf_roc
+
+plot.roc(rf_roc[['rocs']][[1]]) # 91.62%
+
+
+
+plot(model.rf)
+
+
+
+summary(model.rf)
+
+
+
+importance(model.rf)
+
+varImpPlot(model.rf,sort = T,main="Variable Importance",n.var=10)
+
+
+
+# Variable Importance Table
+
+var.imp <- data.frame(importance(model.rf, type=2))
+
+# make row names as columns
+
+var.imp$Variables <- row.names(var.imp)
+
+var.imp[order(var.imp$MeanDecreaseGini,decreasing = T),]
+
+dim(var.imp)
+
+
+
+
+
+############################################################################################################################
+
+############## Part 4: Predictive Accuracy ############################################################
+
+set.seed(1234)
+
+model.rf.test <- predict(model.rf, forest_mod_test)
+
+confusionMatrix(model.rf.test, forest_mod_test$cover_type)
+
+#ROC
+
+rf_test_roc <- multiclass.roc(forest_mod_test$cover_type,as.numeric(model.rf.test), percent = TRUE)
+
+rf_test_roc
+
+plot.roc(rf_test_roc[['rocs']][[1]])
+
+
+##################################### OTHER MODELS #######################################################################
+
+train.df_model = forest_mod_train
+
+train.df_model = train.df_model %>% 
+  
+  mutate(cover_type = ifelse(cover_type == 'Spruce/Fir', 1,
+                             
+                             ifelse(cover_type == 'Lodgepole Pine', 2,
+                                    
+                                    ifelse(cover_type == 'Ponderosa Pine', 3,
+                                           
+                                           ifelse(cover_type == 'Cottonwood/Willow', 4,
+                                                  
+                                                  ifelse(cover_type == 'Aspen', 5,
+                                                         
+                                                         ifelse(cover_type == 'Douglas-fir', 6,
+                                                                
+                                                                ifelse(cover_type == 'Krummholz' , 7, 8))))))))
+head(train.df_model)
+dim(train.df_model) # [1] 406710     57
+
+test.df_model = forest_mod_test
+
+test.df_model = test.df_model %>% 
+  
+  mutate(cover_type = ifelse(cover_type == 'Spruce/Fir', 1,
+                             
+                             ifelse(cover_type == 'Lodgepole Pine', 2,
+                                    
+                                    ifelse(cover_type == 'Ponderosa Pine', 3,
+                                           
+                                           ifelse(cover_type == 'Cottonwood/Willow', 4,
+                                                  
+                                                  ifelse(cover_type == 'Aspen', 5,
+                                                         
+                                                         ifelse(cover_type == 'Douglas-fir', 6,
+                                                                
+                                                                ifelse(cover_type == 'Krummholz' , 7, 8))))))))
+head(test.df_model)
+dim(test.df_model) # [1] 174302     57
+
+# LDA Model
+
+
+library(MASS)
+# Use all the variables 
+train.df_model = train.df_model[,1:55]
+test.df_model = test.df_model[,1:55]
+head(train.df_model)
+head(test.df_model)
+lda.fit1 = lda(cover_type ~ elevation+aspect+slope+horizontal_distance_to_hydrology+vertical_distance_to_hydrology
+               +horizontal_distance_to_roadways
+               +horizontal_distance_to_fire_points + rawah_wild_area + neota_wild_area
+               + comanche_peak_wild_area + cache_la_poudre_wild_area + soil_type1+ soil_type2 + soil_type3 + soil_type4 + soil_type5 +  soil_type6+ soil_type7
+               +soil_type8+soil_type9+soil_type10+soil_type11+soil_type12+soil_type13+soil_type14+soil_type15+soil_type16+soil_type17+ soil_type18
+               +soil_type19+soil_type20+soil_type21+soil_type22+soil_type23+soil_type24+soil_type25+soil_type26+soil_type27+soil_type28
+               +soil_type29+soil_type30+soil_type31+soil_type32+soil_type33+soil_type34+soil_type35+soil_type36+soil_type37+soil_type38
+               +soil_type39+soil_type40, data = train.df_model)
+lda.fit1
+#plot(lda.fit1)
+
+# in sample LDA
+lda.pred_in = predict(lda.fit1,train.df_model)
+names(lda.pred_in)
+
+lda.class0 = lda.pred_in$class
+a= table(lda.class0, train.df_model$cover_type) #67.6%
+predicted_rate_train = (a[1,1]+a[2,2]+a[3,3]+a[4,4]+a[5,5]+a[6,6]+a[7,7])/dim(train.df_model)[1]
+predicted_rate_train # [1] 0.6756854
+
+lda_roc_train <- multiclass.roc(train.df_model$cover_type,as.numeric(lda.class0), percent = TRUE)
+lda_roc_train #79.59%
+plot.roc(lda_roc_train[['rocs']][[1]])
+
+# out of sample LDA
+
+lda.pred_out = predict(lda.fit1,test.df_model)
+names(lda.pred_out)
+
+lda.class1 = lda.pred_out$class
+a= table(lda.class1, test.df_model$cover_type) #67.5%
+predicted_rate_test = (a[1,1]+a[2,2]+a[3,3]+a[4,4]+a[5,5]+a[6,6]+a[7,7])/dim(test.df_model)[1]
+predicted_rate_test # [1] 0.6747025
+
+lda_roc <- multiclass.roc(test.df_model$cover_type,as.numeric(lda.class1), percent = TRUE)
+lda_roc #79.4%
+plot.roc(lda_roc[['rocs']][[1]])
+
+
+# use only numeric variables
+
+head(train.df_model)
+lda.fit2 = lda(cover_type ~ elevation+aspect+slope+horizontal_distance_to_hydrology+vertical_distance_to_hydrology
+               +horizontal_distance_to_roadways+hillshade_9am+hillshade_noon+hillshade_3pm
+               +horizontal_distance_to_fire_points, data = train.df_model)
+lda.fit2
+#plot(lda.fit2)
+
+# in sample LDA method 2
+
+lda.pred_in2 = predict(lda.fit2,train.df_model)
+names(lda.pred_in2)
+
+lda.class2 = lda.pred_in2$class
+a= table(lda.class2, train.df_model$cover_type) #68.9%
+predicted_rate_train = (a[1,1]+a[2,2]+a[3,3]+a[4,4]+a[5,5]+a[6,6]+a[7,7])/dim(train.df_model)[1]
+predicted_rate_train # [1] 0.6885176
+
+lda_roc_train2 <- multiclass.roc(train.df_model$cover_type,as.numeric(lda.class2), percent = TRUE)
+lda_roc_train2 #80.61%
+plot.roc(lda_roc_train2[['rocs']][[1]])
+
+
+# out of sample LDA method 2
+
+lda.pred2 = predict(lda.fit2,test.df_model)
+names(lda.pred2)
+lda.class2 = lda.pred2$class
+a=table(lda.class2, test.df_model$cover_type) #68.8%
+predicted_rate_test2 = (a[1,1]+a[2,2]+a[3,3]+a[4,4]+a[5,5]+a[6,6]+a[7,7])/dim(test.df_model)[1]
+predicted_rate_test2 # [1] 0.6878464
+
+lda_roc2 <- multiclass.roc(test.df_model$cover_type,as.numeric(lda.class2), percent = TRUE)
+lda_roc2 #80.59%
+plot.roc(lda_roc2[['rocs']][[1]])
+
+
+# QDA Model
+
+#qda.fit = qda(cover_type ~ elevation+aspect+slope+horizontal_distance_to_hydrology+vertical_distance_to_hydrology
+ #             +horizontal_distance_to_roadways
+  #            +horizontal_distance_to_fire_points + rawah_wild_area + neota_wild_area
+   #           + comanche_peak_wild_area + cache_la_poudre_wild_area + soil_type1+ soil_type2 + soil_type3 + soil_type4 + soil_type5 +  soil_type6+ soil_type7
+    #          +soil_type8+soil_type9+soil_type10+soil_type11+soil_type12+soil_type13+soil_type14+soil_type15+soil_type16+soil_type17+ soil_type18
+     #         +soil_type19+soil_type20+soil_type21+soil_type22+soil_type23+soil_type24+soil_type25+soil_type26+soil_type27+soil_type28
+      #        +soil_type29+soil_type30+soil_type31+soil_type32+soil_type33+soil_type34+soil_type35+soil_type36+soil_type37+soil_type38
+       #       +soil_type39+soil_type40, data = train.df_model)
+
+# qda.fit # Error in qda.default(x, grouping, ...) : rank deficiency in group 1
+
+qda.fit2 = qda(cover_type ~ elevation+aspect+slope+horizontal_distance_to_hydrology+vertical_distance_to_hydrology
+               +horizontal_distance_to_roadways+hillshade_9am+hillshade_noon+hillshade_3pm
+               +horizontal_distance_to_fire_points, data = train.df_model)
+qda.fit2
+
+# in sample QDA
+
+qda.pred_in3 = predict(qda.fit2,train.df_model)
+names(qda.pred_in3)
+
+qda.class3 = qda.pred_in3$class
+a= table(qda.class3, train.df_model$cover_type) #65.8%
+predicted_rate_train = (a[1,1]+a[2,2]+a[3,3]+a[4,4]+a[5,5]+a[6,6]+a[7,7])/dim(train.df_model)[1]
+predicted_rate_train # [1] 0.6576234
+
+qda_roc_train3 <- multiclass.roc(train.df_model$cover_type,as.numeric(qda.class3), percent = TRUE)
+qda_roc_train3 #76.19%
+plot.roc(qda_roc_train3[['rocs']][[1]])
+
+# out of sample QDA
+
+qda.class = predict(qda.fit2,test.df_model)$class
+a= table(qda.class,test.df_model$cover_type) #65.6%
+predicted_rate_qda_test = (a[1,1]+a[2,2]+a[3,3]+a[4,4]+a[5,5]+a[6,6]+a[7,7])/dim(test.df_model)[1]
+predicted_rate_qda_test # [1] 0.6561829
+
+qda_roc3 <- multiclass.roc(test.df_model$cover_type,as.numeric(qda.class), percent = TRUE)
+qda_roc3 #76.3%
+plot.roc(qda_roc3[['rocs']][[1]])
+
+#KNN
+
+library(class)
+
+head(train.df_model[,1:54])
+train.X = train.df_model[,1:54]
+test.X = test.df_model[,1:54]
+
+# knn.pred = knn(train.X,test.X,train.df_model$cover_type,k=1)
+# table(knn.pred,test.df_model$cover_type) #96.4%
+
+#knn.pred3 = knn(train.X,test.X,train.df_model$cover_type,k=5)
+#table(knn.pred3,test.df_model$cover_type) #96.6%
+
+# in sample 
+knn.train2 = knn(train.X,train.X,train.df_model$cover_type,k=3)
+a=table(knn.train2,train.df_model$cover_type) #98.8%
+predicted_rate_knn_train = (a[1,1]+a[2,2]+a[3,3]+a[4,4]+a[5,5]+a[6,6]+a[7,7])/dim(train.df_model)[1]
+predicted_rate_knn_train # [1] 0.9882398
+
+#ROC
+
+knn_roc_train <- multiclass.roc(train.df_model$cover_type,as.numeric(knn.train2), percent = TRUE)
+knn_roc_train
+plot.roc(knn_roc_train[['rocs']][[1]]) # 98.43%
+
+# out of sample
+knn.pred2 = knn(train.X,test.X,train.df_model$cover_type,k=3)
+a=table(knn.pred2,test.df_model$cover_type) # 96.7%
+
+predicted_rate_knn_test = (a[1,1]+a[2,2]+a[3,3]+a[4,4]+a[5,5]+a[6,6]+a[7,7])/dim(test.df_model)[1]
+predicted_rate_knn_test # [1] 0.9670285
+
+#ROC
+
+knn_roc <- multiclass.roc(test.df_model$cover_type,as.numeric(knn.pred2), percent = TRUE)
+knn_roc
+plot.roc(knn_roc[['rocs']][[1]]) # 95.93%
+
+# Naive Bayes
+
+library(e1071)
+
+train.df_model_nb = train.df_model[,1:55]
+head(train.df_model_nb)
+nb_covertype = naiveBayes(cover_type ~., data = train.df_model_nb)
+
+# in sample NB
+nb_covertype_pred_train = predict(nb_covertype, train.df_model_nb,type = "raw")
+nb_pred_cover_type_train = apply(nb_covertype_pred_train,1,which.max)
+a= table(nb_pred_cover_type_train,train.df_model$cover_type) 
+predicted_rate_nb_train = (a[1,1]+a[2,2]+a[3,3]+a[4,4]+a[5,5]+a[6,6]+a[7,7])/dim(train.df_model)[1]
+predicted_rate_nb_train # [1] 0.6536353
+
+nb_roc4 <- multiclass.roc(train.df_model$cover_type,as.numeric(nb_pred_cover_type_train), percent = TRUE)
+nb_roc4 # 75.1%
+plot.roc(nb_roc4[['rocs']][[1]])
+
+
+# out of sample NB
+test.df_model_nb =test.df_model[,1:55]
+nb_covertype_pred = predict(nb_covertype, test.df_model_nb,type = "raw")
+nb_pred_cover_type = apply(nb_covertype_pred,1,which.max)
+a= table(nb_pred_cover_type,test.df_model$cover_type) 
+predicted_rate_nb_test = (a[1,1]+a[2,2]+a[3,3]+a[4,4]+a[5,5]+a[6,6]+a[7,7])/dim(test.df_model)[1]
+predicted_rate_nb_test # 0.6530103
+
+nb_roc5 <- multiclass.roc(test.df_model$cover_type,as.numeric(nb_pred_cover_type), percent = TRUE)
+nb_roc5 # 74.84%
+plot.roc(nb_roc5[['rocs']][[1]])
+
+
+
+
+
+
+
+
+
