@@ -1,0 +1,41 @@
+soil_type ,soil_desc,climate,geology
+soil_type1,extremely stony,lower montane,igneous and metamorphic
+soil_type2,very stony,lower montane,igneous and metamorphic
+soil_type3,rubbly,lower montane,igneous and metamorphic
+soil_type4,rubbly,lower montane,igneous and metamorphic
+soil_type5,rubbly,lower montane,igneous and metamorphic
+soil_type6,stony,lower montane,igneous and metamorphic
+soil_type7,unknown ,montane dry,mixed sedimentary
+soil_type8,unknown ,montane,mixed sedimentary
+soil_type9,very stony,montane,glacial
+soil_type10,rubbly,montane,igneous and metamorphic
+soil_type11,rubbly,montane,igneous and metamorphic
+soil_type12,stony,montane,igneous and metamorphic
+soil_type13,rubbly,montane dry and montane,igneous and metamorphic
+soil_type14,unknown ,montane dry and montane,alluvium
+soil_type15,unknown ,monatne and subalpine,alluvium
+soil_type16,unknown ,monatne and subalpine,alluvium
+soil_type17,unknown ,monatne and subalpine,alluvium
+soil_type18,very stony,subalpine,igneous and metamorphic
+soil_type19,unknown ,subalpine,alluvium
+soil_type20,unknown ,subalpine,alluvium
+soil_type21,unknown ,subalpine,alluvium
+soil_type22,extremely bouldery,subalpine,glacial
+soil_type23,unknown ,subalpine,glacial
+soil_type24,extremely stony,subalpine,igneous and metamorphic
+soil_type25,extremely stony,subalpine,igneous and metamorphic
+soil_type26,extremely stony,subalpine,igneous and metamorphic
+soil_type27,extremely stony,subalpine,igneous and metamorphic
+soil_type28,extremely stony,subalpine,igneous and metamorphic
+soil_type29,extremely stony,subalpine,igneous and metamorphic
+soil_type30,extremely stony,subalpine,igneous and metamorphic
+soil_type31,extremely stony,subalpine,igneous and metamorphic
+soil_type32,extremely stony,subalpine,igneous and metamorphic
+soil_type33,extremely stony,subalpine,igneous and metamorphic
+soil_type34,extremely stony,alpine,igneous and metamorphic
+soil_type35,unknown ,alpine,igneous and metamorphic
+soil_type36,extremely stony,alpine,igneous and metamorphic
+soil_type37,extremely stony,alpine,igneous and metamorphic
+soil_type38,extremely stony,alpine,igneous and metamorphic
+soil_type39,extremely stony,alpine,igneous and metamorphic
+soil_type40,extremely stony,alpine,igneous and metamorphic
