@@ -1,5 +1,5 @@
 # Forest_Cover
-Advanced Modeling Techniques Class, Northwestern University
+Advanced Modeling Techniques Class:  
 In this project we used machine learning techniques to predict the type of forest cover in an unbalanced data set, obtained from the US Forest Service. This is a multiclass classification problem.
 
 Contributors:
